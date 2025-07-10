@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "NewtonClips",
+	"Description": "NewtonClips",
+	"Category": "Other",
+	"CreatedBy": "epw",
+	"CreatedByURL": "https://github.com/doidio/NewtonClips",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "NewtonClips",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

@@ -47,12 +47,6 @@ class NEWTONCLIPS_API ANewtonShapeMeshActor : public ADynamicMeshActor
 public:
 	// Sets default values for this actor's properties
 	ANewtonShapeMeshActor();
-	
-	UPROPERTY(BlueprintReadOnly)
-	FString Vertices;
-
-	UPROPERTY(BlueprintReadOnly)
-	FString Indices;
 
 protected:
 	// Called when the game starts or when spawned

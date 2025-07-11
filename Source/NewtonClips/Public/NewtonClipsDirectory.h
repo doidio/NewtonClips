@@ -24,18 +24,6 @@ struct FNewtonModel
 	TArray<FNewtonSoftMesh> SoftMesh;
 };
 
-class FNewtonMeshGenerator final : public UE::Geometry::FMeshShapeGenerator
-{
-public:
-	virtual FMeshShapeGenerator& Generate() override { return *this; }
-
-	FNewtonMeshGenerator* Copy(const FString& CacheDir, const FString& InVertices, const FString& InIndices,
-							   const FString& InVertexNormals, const FString& InVertexUVs);
-
-	FNewtonMeshGenerator* Copy(const TArray<FVector3f>& InVertices, const TArray<FIntVector>& InTriangles,
-	                           const TArray<FVector3f>& InVertexNormals, const TArray<FVector2f>& InVertexUVs);
-};
-
 UCLASS()
 class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 {
@@ -54,8 +42,28 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	UPROPERTY()
 	TArray<ANewtonSoftMeshActor*> SoftActors;
 
+	UPROPERTY()
+	FVector3f DefaultVertexColor = {1, 0, 0};
+
+	FDynamicMesh3 CreateDynamicMesh(const FString& Vertices,
+	                                const FString& Indices,
+	                                const FString& VertexNormals,
+	                                const FString& VertexUVs) const;
+	FDynamicMesh3 CreateDynamicMesh(const TArray<FVector3f>& Vertices,
+	                                const TArray<FIntVector>& Triangles,
+	                                const TArray<FVector3f>& VertexNormals,
+	                                const TArray<FVector2f>& VertexUVs) const;
 	void SpawnActors(const FNewtonModel& NewtonModel);
 	void DestroyActors();
+
+	UPROPERTY()
+	UMaterial* MUnlit = nullptr;
+
+	UPROPERTY()
+	UMaterial* MOpaque = nullptr;
+
+	UPROPERTY()
+	UMaterial* MTranslucent = nullptr;
 
 public:
 	// Sets default values for this actor's properties

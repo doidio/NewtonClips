@@ -38,6 +38,10 @@ public class NewtonClips : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
+				"Json",
+				"JsonUtilities",
+				"GeometryCore",
+				"GeometryFramework",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

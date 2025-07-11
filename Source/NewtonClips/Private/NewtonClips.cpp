@@ -2,6 +2,8 @@
 
 #include "NewtonClips.h"
 
+DEFINE_LOG_CATEGORY(LogNewtonClips);
+
 #define LOCTEXT_NAMESPACE "FNewtonClipsModule"
 
 void FNewtonClipsModule::StartupModule()

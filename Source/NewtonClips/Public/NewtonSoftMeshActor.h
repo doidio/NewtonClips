@@ -42,6 +42,21 @@ public:
 	// Sets default values for this actor's properties
 	ANewtonSoftMeshActor();
 
+	UPROPERTY(BlueprintReadWrite)
+	FString Name;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 Begin = 0;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 Count = 0;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FVector3f> TargetLocation;
+
+	UPROPERTY(BlueprintReadWrite)
+	float LerpTime;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

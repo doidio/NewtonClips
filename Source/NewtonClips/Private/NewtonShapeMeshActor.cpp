@@ -19,8 +19,18 @@ void ANewtonShapeMeshActor::BeginPlay()
 }
 
 // Called every frame
-void ANewtonShapeMeshActor::Tick(float DeltaTime)
+void ANewtonShapeMeshActor::Tick(const float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (LerpTime > DeltaTime && LerpTime > 0)
+	{
+		const float Alpha = FMath::Clamp<float>(DeltaTime / LerpTime, 0.f, 1.f);
+		const auto Q = FQuat::Slerp(GetActorRotation().Quaternion(), TargetRotation, Alpha);
+		const FVector L = (1 - Alpha) * GetActorLocation() + Alpha * TargetLocation;
+
+		SetActorTransform(FTransform(Q, L));
+		LerpTime = FMath::Max(LerpTime - DeltaTime, 0);
+	}
 }
 

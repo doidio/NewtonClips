@@ -15,7 +15,7 @@ struct FNewtonShapeMesh
 	FString Name;
 
 	UPROPERTY()
-	int32 Body = 0;
+	int32 Body = -1;
 
 	UPROPERTY()
 	TArray<float> Transform;
@@ -47,6 +47,21 @@ class NEWTONCLIPS_API ANewtonShapeMeshActor : public ADynamicMeshActor
 public:
 	// Sets default values for this actor's properties
 	ANewtonShapeMeshActor();
+
+	UPROPERTY(BlueprintReadWrite)
+	FString Name;
+
+	UPROPERTY(BlueprintReadWrite)
+	int32 Body = -1;
+
+	UPROPERTY(BlueprintReadWrite)
+	FVector TargetLocation;
+
+	UPROPERTY(BlueprintReadWrite)
+	FQuat TargetRotation;
+
+	UPROPERTY(BlueprintReadWrite)
+	float LerpTime;
 
 protected:
 	// Called when the game starts or when spawned

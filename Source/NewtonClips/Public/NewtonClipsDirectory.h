@@ -15,13 +15,31 @@ struct FNewtonModel
 	GENERATED_BODY()
 
 	UPROPERTY()
-	FString Uuid;
+	FString Sha1;
+
+	UPROPERTY()
+	float Scale;
 
 	UPROPERTY()
 	TArray<FNewtonShapeMesh> ShapeMesh;
 
 	UPROPERTY()
 	TArray<FNewtonSoftMesh> SoftMesh;
+};
+
+USTRUCT(BlueprintType)
+struct FNewtonState
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	float DeltaTime;
+
+	UPROPERTY()
+	FString BodyTransform;
+
+	UPROPERTY()
+	FString ParticlePosition;
 };
 
 UCLASS()
@@ -33,8 +51,6 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	FDateTime ModelFileTimeStamp;
 
 	void OnTimer();
-
-	FString Uuid;
 
 	UPROPERTY()
 	TArray<ANewtonShapeMeshActor*> ShapeActors;
@@ -53,8 +69,18 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	                                const TArray<FIntVector>& Triangles,
 	                                const TArray<FVector3f>& VertexNormals,
 	                                const TArray<FVector2f>& VertexUVs) const;
-	void SpawnActors(const FNewtonModel& NewtonModel);
-	void DestroyActors();
+
+	UPROPERTY()
+	FNewtonModel Model;
+	
+	void SpawnModel(const FNewtonModel& NewtonModel);
+	void DestroyModel();
+	
+	UPROPERTY()
+	TArray<FNewtonState> Frames;
+
+	void PopulateFrameLast();
+	void PopulateFrame(int32 FrameId);
 
 	UPROPERTY()
 	UMaterial* MUnlit = nullptr;

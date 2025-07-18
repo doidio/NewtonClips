@@ -3,6 +3,10 @@
 
 #include "NewtonSoftMeshActor.h"
 
+#include "DynamicMesh/MeshNormals.h"
+#include "Operations/RepairOrientation.h"
+#include "Selection/MeshTopologySelectionMechanic.h"
+
 
 // Sets default values
 ANewtonSoftMeshActor::ANewtonSoftMeshActor()
@@ -26,15 +30,19 @@ void ANewtonSoftMeshActor::Tick(const float DeltaTime)
 	{
 		const float Alpha = FMath::Clamp<float>(DeltaTime / LerpTime, 0.f, 1.f);
 
-		for (auto& Mesh = GetDynamicMeshComponent()->GetDynamicMesh()->GetMeshRef();
-		     const auto VertexID : Mesh.VertexIndicesItr())
+		auto& Mesh = GetDynamicMeshComponent()->GetDynamicMesh()->GetMeshRef();
+
+		ParallelFor(Mesh.VertexCount(), [&](const int32 VertexID)
 		{
 			if (TargetLocation.IsValidIndex(VertexID))
 			{
 				const FVector L = (1 - Alpha) * Mesh.GetVertex(VertexID) + Alpha * FVector3d(TargetLocation[VertexID]);
 				Mesh.SetVertex(VertexID, L);
 			}
-		}
+		});
+
+		UE::Geometry::FMeshNormals::QuickComputeVertexNormals(Mesh);
+		UE::Geometry::FMeshNormals::QuickRecomputeOverlayNormals(Mesh);
 
 		GetDynamicMeshComponent()->NotifyMeshModified();
 		GetDynamicMeshComponent()->NotifyMeshVertexAttributesModified();

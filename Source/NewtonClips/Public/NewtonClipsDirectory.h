@@ -6,7 +6,6 @@
 #include "NewtonShapeMeshActor.h"
 #include "NewtonSoftMeshActor.h"
 #include "GameFramework/Actor.h"
-#include "Generators/MeshShapeGenerator.h"
 #include "NewtonClipsDirectory.generated.h"
 
 USTRUCT(BlueprintType)
@@ -61,21 +60,15 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	UPROPERTY()
 	FVector3f DefaultVertexColor = {1, 0, 0};
 
-	FDynamicMesh3 CreateDynamicMesh(const FString& Vertices,
-	                                const FString& Indices,
-	                                const FString& VertexNormals,
-	                                const FString& VertexUVs) const;
-	FDynamicMesh3 CreateDynamicMesh(const TArray<FVector3f>& Vertices,
-	                                const TArray<FIntVector>& Triangles,
-	                                const TArray<FVector3f>& VertexNormals,
-	                                const TArray<FVector2f>& VertexUVs) const;
+	FDynamicMesh3 CreateDynamicMesh(const FString& Vertices, const FString& Indices) const;
+	FDynamicMesh3 CreateDynamicMesh(const TArray<FVector3f>& Vertices, const TArray<FIntVector>& Triangles) const;
 
 	UPROPERTY()
 	FNewtonModel Model;
-	
+
 	void SpawnModel(const FNewtonModel& NewtonModel);
 	void DestroyModel();
-	
+
 	UPROPERTY()
 	TArray<FNewtonState> Frames;
 

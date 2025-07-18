@@ -25,12 +25,6 @@ struct FNewtonSoftMesh
 
 	UPROPERTY()
 	FString Indices;
-
-	UPROPERTY()
-	FString VertexNormals;
-
-	UPROPERTY()
-	FString VertexUVs;
 };
 
 UCLASS()

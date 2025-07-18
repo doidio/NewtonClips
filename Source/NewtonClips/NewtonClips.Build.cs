@@ -42,6 +42,8 @@ public class NewtonClips : ModuleRules
 				"JsonUtilities",
 				"GeometryCore",
 				"GeometryFramework",
+				"DynamicMesh", 
+				"ModelingComponents",
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

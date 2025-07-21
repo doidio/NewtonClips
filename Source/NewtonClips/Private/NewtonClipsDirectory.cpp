@@ -32,7 +32,7 @@ ANewtonClipsDirectory::ANewtonClipsDirectory()
 	PrimaryActorTick.bCanEverTick = true;
 
 	RootSceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootSceneComponent"));
-	RootComponent = RootSceneComponent;
+	SetRootComponent(RootSceneComponent);
 }
 
 // Called every frame
@@ -156,8 +156,8 @@ FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const TArray<FVector3f>& 
 
 	Mesh.EnableTriangleGroups();
 
-	const int NumVerts = Vertices.Num();
-	for (int i = 0; i < NumVerts; ++i)
+	const int N = Vertices.Num();
+	for (int i = 0; i < N; ++i)
 	{
 		Mesh.AppendVertex(FVector3d(Vertices[i]));
 	}
@@ -169,17 +169,17 @@ FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const TArray<FVector3f>& 
 
 		if (Tid == FDynamicMesh3::InvalidID)
 		{
-			UE_LOG(LogNewtonClips, Error, TEXT("Invalid Triangle: %s"), *Triangle.ToString());
+			UE_LOG(LogNewtonClips, Error, TEXT("Invalid Triangle: %s (%d)"), *Triangle.ToString(), N);
 			return {};
 		}
 		if (Tid == FDynamicMesh3::NonManifoldID)
 		{
-			UE_LOG(LogNewtonClips, Error, TEXT("NonManifold Triangle: %s"), *Triangle.ToString());
+			UE_LOG(LogNewtonClips, Error, TEXT("NonManifold Triangle: %s (%d)"), *Triangle.ToString(), N);
 			return {};
 		}
 		if (Tid == FDynamicMesh3::DuplicateTriangleID)
 		{
-			UE_LOG(LogNewtonClips, Error, TEXT("Duplicate Triangle: %s"), *Triangle.ToString());
+			UE_LOG(LogNewtonClips, Error, TEXT("Duplicate Triangle: %s (%d)"), *Triangle.ToString(), N);
 			return {};
 		}
 	}
@@ -203,15 +203,15 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 	// ReSharper disable once CppUseStructuredBinding
 	for (const auto& Item : NewtonModel.ShapeMesh)
 	{
-		FDynamicMesh3 DynamicMesh = CreateDynamicMesh(Item.Vertices, Item.Indices);
+		FDynamicMesh3 Mesh = CreateDynamicMesh(Item.Vertices, Item.Indices);
 
 		UE_LOG(LogNewtonClips, Log, TEXT("[ ShapeMesh: %d ]"), i);
-		UE_LOG(LogNewtonClips, Log, TEXT("%s"), *DynamicMesh.MeshInfoString());
+		UE_LOG(LogNewtonClips, Log, TEXT("%s"), *Mesh.MeshInfoString());
 
 		auto Actor = GetWorld()->SpawnActor<ANewtonShapeMeshActor>();
 		Actor->Name = Item.Name;
 		Actor->Body = Item.Body;
-		Actor->GetDynamicMeshComponent()->SetMesh(MoveTemp(DynamicMesh));
+		Actor->GetDynamicMeshComponent()->SetMesh(MoveTemp(Mesh));
 
 		Actor->GetDynamicMeshComponent()->GetDynamicMesh()->EditMesh([&](FDynamicMesh3& EditMesh)
 		{
@@ -230,7 +230,7 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 		const FVector L(Item.Transform[0], Item.Transform[1], Item.Transform[2]);
 		const FQuat Q(Item.Transform[3], Item.Transform[4], Item.Transform[5], Item.Transform[6]);
 		const FVector S(Item.Scale[0], Item.Scale[1], Item.Scale[2]);
-		Actor->SetActorRelativeTransform(FTransform(Q, L, S));
+		Actor->GetDynamicMeshComponent()->SetRelativeTransform(FTransform(Q, L, S));
 
 		Actor->GetDynamicMeshComponent()->SetMaterial(0, UMaterialInstanceDynamic::Create(MOpaque, this));
 		Actor->GetDynamicMeshComponent()->MarkRenderStateDirty();
@@ -244,16 +244,16 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 	// ReSharper disable once CppUseStructuredBinding
 	for (const auto& Item : NewtonModel.SoftMesh)
 	{
-		FDynamicMesh3 DynamicMesh = CreateDynamicMesh(Item.Vertices, Item.Indices);
+		FDynamicMesh3 Mesh = CreateDynamicMesh(Item.Vertices, Item.Indices);
 
 		UE_LOG(LogNewtonClips, Log, TEXT("[ SoftMesh: %d ]"), i);
-		UE_LOG(LogNewtonClips, Log, TEXT("%s"), *DynamicMesh.MeshInfoString());
+		UE_LOG(LogNewtonClips, Log, TEXT("%s"), *Mesh.MeshInfoString());
 
 		auto Actor = GetWorld()->SpawnActor<ANewtonSoftMeshActor>();
 		Actor->Name = Item.Name;
 		Actor->Begin = Item.Begin;
 		Actor->Count = Item.Count;
-		Actor->GetDynamicMeshComponent()->SetMesh(MoveTemp(DynamicMesh));
+		Actor->GetDynamicMeshComponent()->SetMesh(MoveTemp(Mesh));
 
 #if WITH_EDITOR
 		Actor->SetActorLabel(Item.Name.IsEmpty() ? TEXT("NewtonSoftMesh") : Item.Name);
@@ -341,7 +341,7 @@ void ANewtonClipsDirectory::PopulateFrame(const int32 FrameId)
 
 			// convert from right-hand-system
 			const FVector L(Transform[0], Transform[1], Transform[2]);
-			const FQuat Q(Transform[3], -Transform[4], -Transform[5], Transform[6]);
+			const FQuat Q(Transform[3], Transform[4], Transform[5], Transform[6]);
 			Actor->TargetLocation = L;
 			Actor->TargetRotation = Q;
 			Actor->LerpTime = Item.DeltaTime;

@@ -350,11 +350,13 @@ void ANewtonClipsDirectory::PopulateFrame(const int32 FrameId)
 
 	for (const auto& Actor : SoftActors)
 	{
-		if (Actor->Count > 0)
+		if (Actor->Count > 0 && Actor->Begin >= 0 && Actor->Begin + Actor->Count <= ParticlePosition.Num())
 		{
 			auto View = TArrayView<FVector3f>(ParticlePosition).Slice(Actor->Begin, Actor->Count);
 			Actor->TargetLocation = TArray<FVector3f>(View);
 			Actor->LerpTime = Item.DeltaTime;
 		}
+		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid particles %s begin %d count %d num %d"),
+			*Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num());
 	}
 }

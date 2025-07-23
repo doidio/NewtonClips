@@ -4,7 +4,6 @@
 #include "NewtonSoftMeshActor.h"
 
 #include "DynamicMesh/MeshNormals.h"
-#include "Operations/RepairOrientation.h"
 #include "Selection/MeshTopologySelectionMechanic.h"
 
 

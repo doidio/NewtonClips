@@ -229,8 +229,7 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 		// convert from right-hand-system
 		const FVector L(Item.Transform[0], Item.Transform[1], Item.Transform[2]);
 		const FQuat Q(Item.Transform[3], Item.Transform[4], Item.Transform[5], Item.Transform[6]);
-		const FVector S(Item.Scale[0], Item.Scale[1], Item.Scale[2]);
-		Actor->GetDynamicMeshComponent()->SetRelativeTransform(FTransform(Q, L, S));
+		Actor->GetDynamicMeshComponent()->SetRelativeTransform(FTransform(Q, L));
 
 		Actor->GetDynamicMeshComponent()->SetMaterial(0, UMaterialInstanceDynamic::Create(MOpaque, this));
 		Actor->GetDynamicMeshComponent()->MarkRenderStateDirty();

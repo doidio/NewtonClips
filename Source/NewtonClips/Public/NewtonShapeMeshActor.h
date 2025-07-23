@@ -21,9 +21,6 @@ struct FNewtonShapeMesh
 	TArray<float> Transform;
 
 	UPROPERTY()
-	TArray<float> Scale;
-
-	UPROPERTY()
 	FString Vertices;
 
 	UPROPERTY()

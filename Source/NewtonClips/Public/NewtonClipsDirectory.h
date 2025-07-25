@@ -92,7 +92,7 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	UMaterial* MTranslucent = nullptr;
 
 	UPROPERTY()
-	UNiagaraSystem* NSprite = nullptr;
+	UNiagaraSystem* NSphere = nullptr;
 
 public:
 	// Sets default values for this actor's properties

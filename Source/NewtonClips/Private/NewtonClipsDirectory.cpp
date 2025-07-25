@@ -31,9 +31,9 @@ ANewtonClipsDirectory::ANewtonClipsDirectory()
 	check(MatTranslucent.Object);
 	MTranslucent = MatTranslucent.Object;
 
-	static FN NiaSprite(TEXT("NiagaraSystem'/NewtonClips/NiaSprite.NiaSprite'"));
-	check(NiaSprite.Object);
-	NSprite = NiaSprite.Object;
+	static FN NiaSphere(TEXT("NiagaraSystem'/NewtonClips/NiaSphere.NiaSphere'"));
+	check(NiaSphere.Object);
+	NSphere = NiaSphere.Object;
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -279,7 +279,7 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 		GranularFluidActors.Add(Actor);
 
 		UNiagaraComponent* Nia = Cast<UNiagaraComponent>(Actor->GetRootComponent());
-		Nia->SetAsset(NSprite);
+		Nia->SetAsset(NSphere);
 		const FVector Scale = Nia->GetComponentScale();
 
 		FString File;

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "NewtonGranularFluidActor.h"
 #include "NewtonShapeMeshActor.h"
 #include "NewtonSoftMeshActor.h"
 #include "GameFramework/Actor.h"
@@ -24,6 +25,9 @@ struct FNewtonModel
 
 	UPROPERTY()
 	TArray<FNewtonSoftMesh> SoftMesh;
+
+	UPROPERTY()
+	TArray<FNewtonGranularFluid> GranularFluid;
 };
 
 USTRUCT(BlueprintType)
@@ -52,10 +56,13 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	void OnTimer();
 
 	UPROPERTY()
-	TArray<ANewtonShapeMeshActor*> ShapeActors;
+	TArray<ANewtonShapeMeshActor*> ShapeMeshActors;
 
 	UPROPERTY()
-	TArray<ANewtonSoftMeshActor*> SoftActors;
+	TArray<ANewtonSoftMeshActor*> SoftMeshActors;
+
+	UPROPERTY()
+	TArray<ANewtonGranularFluidActor*> GranularFluidActors;
 
 	UPROPERTY()
 	FVector3f DefaultVertexColor = {1, 0, 0};
@@ -83,6 +90,9 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 
 	UPROPERTY()
 	UMaterial* MTranslucent = nullptr;
+
+	UPROPERTY()
+	UNiagaraSystem* NSprite = nullptr;
 
 public:
 	// Sets default values for this actor's properties

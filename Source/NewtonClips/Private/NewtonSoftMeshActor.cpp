@@ -25,7 +25,7 @@ void ANewtonSoftMeshActor::Tick(const float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (LerpTime > DeltaTime && LerpTime > 0)
+	if (LerpTime > 0)
 	{
 		const float Alpha = FMath::Clamp<float>(DeltaTime / LerpTime, 0.f, 1.f);
 
@@ -33,9 +33,9 @@ void ANewtonSoftMeshActor::Tick(const float DeltaTime)
 
 		ParallelFor(Mesh.VertexCount(), [&](const int32 VertexID)
 		{
-			if (TargetLocation.IsValidIndex(VertexID))
+			if (ParticlePositions.IsValidIndex(VertexID))
 			{
-				const FVector L = (1 - Alpha) * Mesh.GetVertex(VertexID) + Alpha * FVector3d(TargetLocation[VertexID]);
+				const FVector L = (1 - Alpha) * Mesh.GetVertex(VertexID) + Alpha * FVector(ParticlePositions[VertexID]);
 				Mesh.SetVertex(VertexID, L);
 			}
 		});

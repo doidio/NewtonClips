@@ -10,8 +10,11 @@
 #include "DynamicMesh/MeshNormals.h"
 #include "Operations/RepairOrientation.h"
 #include "Selection/MeshTopologySelectionMechanic.h"
+#include "NiagaraDataInterfaceArrayFunctionLibrary.h"
+#include "NiagaraSystem.h"
 
 using FM = ConstructorHelpers::FObjectFinder<UMaterial>;
+using FN = ConstructorHelpers::FObjectFinder<UNiagaraSystem>;
 
 // Sets default values
 ANewtonClipsDirectory::ANewtonClipsDirectory()
@@ -27,6 +30,10 @@ ANewtonClipsDirectory::ANewtonClipsDirectory()
 	static FM MatTranslucent(TEXT("Material'/NewtonClips/MatTranslucent.MatTranslucent'"));
 	check(MatTranslucent.Object);
 	MTranslucent = MatTranslucent.Object;
+
+	static FN NiaSprite(TEXT("NiagaraSystem'/NewtonClips/NiaSprite.NiaSprite'"));
+	check(NiaSprite.Object);
+	NSprite = NiaSprite.Object;
 
 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -159,7 +166,7 @@ FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const TArray<FVector3f>& 
 	const int N = Vertices.Num();
 	for (int i = 0; i < N; ++i)
 	{
-		Mesh.AppendVertex(FVector3d(Vertices[i]));
+		Mesh.AppendVertex(FVector(Vertices[i]));
 	}
 
 	for (const auto& Triangle : Triangles)
@@ -198,20 +205,15 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 {
 	SetActorRelativeScale3D(FVector(NewtonModel.Scale * 100)); // m to cm
 
-	int32 i = 0;
-
 	// ReSharper disable once CppUseStructuredBinding
 	for (const auto& Item : NewtonModel.ShapeMesh)
 	{
-		FDynamicMesh3 Mesh = CreateDynamicMesh(Item.Vertices, Item.Indices);
-
-		UE_LOG(LogNewtonClips, Log, TEXT("[ ShapeMesh: %d ]"), i);
-		UE_LOG(LogNewtonClips, Log, TEXT("%s"), *Mesh.MeshInfoString());
+		UE_LOG(LogNewtonClips, Log, TEXT("[ ShapeMesh: %s ]"), *Item.Name);
 
 		auto Actor = GetWorld()->SpawnActor<ANewtonShapeMeshActor>();
 		Actor->Name = Item.Name;
 		Actor->Body = Item.Body;
-		Actor->GetDynamicMeshComponent()->SetMesh(MoveTemp(Mesh));
+		Actor->GetDynamicMeshComponent()->SetMesh(CreateDynamicMesh(Item.Vertices, Item.Indices));
 
 		Actor->GetDynamicMeshComponent()->GetDynamicMesh()->EditMesh([&](FDynamicMesh3& EditMesh)
 		{
@@ -234,25 +236,19 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 		Actor->GetDynamicMeshComponent()->SetMaterial(0, UMaterialInstanceDynamic::Create(MOpaque, this));
 		Actor->GetDynamicMeshComponent()->MarkRenderStateDirty();
 
-		ShapeActors.Add(Actor);
-		++i;
+		ShapeMeshActors.Add(Actor);
 	}
-
-	i = 0;
 
 	// ReSharper disable once CppUseStructuredBinding
 	for (const auto& Item : NewtonModel.SoftMesh)
 	{
-		FDynamicMesh3 Mesh = CreateDynamicMesh(Item.Vertices, Item.Indices);
-
-		UE_LOG(LogNewtonClips, Log, TEXT("[ SoftMesh: %d ]"), i);
-		UE_LOG(LogNewtonClips, Log, TEXT("%s"), *Mesh.MeshInfoString());
+		UE_LOG(LogNewtonClips, Log, TEXT("[ SoftMesh: %s ]"), *Item.Name);
 
 		auto Actor = GetWorld()->SpawnActor<ANewtonSoftMeshActor>();
 		Actor->Name = Item.Name;
 		Actor->Begin = Item.Begin;
 		Actor->Count = Item.Count;
-		Actor->GetDynamicMeshComponent()->SetMesh(MoveTemp(Mesh));
+		Actor->GetDynamicMeshComponent()->SetMesh(CreateDynamicMesh(Item.Vertices, Item.Indices));
 
 #if WITH_EDITOR
 		Actor->SetActorLabel(Item.Name.IsEmpty() ? TEXT("NewtonSoftMesh") : Item.Name);
@@ -262,8 +258,57 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 		Actor->GetDynamicMeshComponent()->SetMaterial(0, UMaterialInstanceDynamic::Create(MOpaque, this));
 		Actor->GetDynamicMeshComponent()->MarkRenderStateDirty();
 
-		SoftActors.Add(Actor);
-		++i;
+		SoftMeshActors.Add(Actor);
+	}
+
+	// ReSharper disable once CppUseStructuredBinding
+	for (const auto& Item : NewtonModel.GranularFluid)
+	{
+		UE_LOG(LogNewtonClips, Log, TEXT("[ GranularFluid: %s ]"), *Item.Name);
+
+		auto Actor = GetWorld()->SpawnActor<ANewtonGranularFluidActor>();
+		Actor->Name = Item.Name;
+		Actor->Begin = Item.Begin;
+		Actor->Count = Item.Count;
+
+#if WITH_EDITOR
+		Actor->SetActorLabel(Item.Name.IsEmpty() ? TEXT("NewtonGranularFluid") : Item.Name);
+#endif
+		Actor->AttachToActor(this, FAttachmentTransformRules::KeepRelativeTransform);
+
+		GranularFluidActors.Add(Actor);
+
+		UNiagaraComponent* Nia = Cast<UNiagaraComponent>(Actor->GetRootComponent());
+		Nia->SetAsset(NSprite);
+		const FVector Scale = Nia->GetComponentScale();
+
+		FString File;
+		FString CacheDir = FPaths::Combine(Directory, TEXT(".cache"));
+		TArray<FVector> Particles;
+
+		if (TArray<uint8> Bytes;
+			!Item.Particles.IsEmpty() &&
+			FPaths::FileExists(File = FPaths::Combine(CacheDir, Item.Particles)) &&
+			FFileHelper::LoadFileToArray(Bytes, *File))
+		{
+			TArray<FVector3f> Temp;
+			Temp.SetNumUninitialized(Bytes.Num() / sizeof(FVector3f));
+			FMemory::Memcpy(Temp.GetData(), Bytes.GetData(), Bytes.Num());
+
+			Particles.SetNumUninitialized(Temp.Num());
+			ParallelFor(Temp.Num(), [&](const int32 VecID)
+			{
+				if (Particles.IsValidIndex(VecID))
+				{
+					Particles[VecID] = FVector(Temp[VecID]) * Scale;
+				}
+			});
+		}
+		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid Particles cache: %s"), *Item.Particles);
+
+		UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(Nia, FName(TEXT("Positions")), Particles);
+		Nia->SetVariableInt(FName(TEXT("Count")), Particles.Num());
+		Nia->SetVariableMaterial(FName(TEXT("Mat")), UMaterialInstanceDynamic::Create(MOpaque, this));
 	}
 }
 
@@ -271,17 +316,23 @@ void ANewtonClipsDirectory::DestroyModel()
 {
 	SetActorRelativeScale3D(FVector::OneVector * 100);
 
-	for (const auto Actor : ShapeActors)
+	for (const auto Actor : ShapeMeshActors)
 	{
 		Actor->Destroy();
 	}
-	ShapeActors.Empty();
+	ShapeMeshActors.Empty();
 
-	for (const auto Actor : SoftActors)
+	for (const auto Actor : SoftMeshActors)
 	{
 		Actor->Destroy();
 	}
-	SoftActors.Empty();
+	SoftMeshActors.Empty();
+
+	for (const auto Actor : GranularFluidActors)
+	{
+		Actor->Destroy();
+	}
+	GranularFluidActors.Empty();
 }
 
 void ANewtonClipsDirectory::PopulateFrameLast()
@@ -332,7 +383,7 @@ void ANewtonClipsDirectory::PopulateFrame(const int32 FrameId)
 	}
 	else UE_LOG(LogNewtonClips, Error, TEXT("Invalid ParticlePosition cache: %s"), *Item.ParticlePosition);
 
-	for (const auto& Actor : ShapeActors)
+	for (const auto& Actor : ShapeMeshActors)
 	{
 		if (BodyTransform.IsValidIndex(Actor->Body))
 		{
@@ -347,15 +398,27 @@ void ANewtonClipsDirectory::PopulateFrame(const int32 FrameId)
 		}
 	}
 
-	for (const auto& Actor : SoftActors)
+	for (const auto& Actor : SoftMeshActors)
 	{
 		if (Actor->Count > 0 && Actor->Begin >= 0 && Actor->Begin + Actor->Count <= ParticlePosition.Num())
 		{
 			auto View = TArrayView<FVector3f>(ParticlePosition).Slice(Actor->Begin, Actor->Count);
-			Actor->TargetLocation = TArray<FVector3f>(View);
+			Actor->ParticlePositions = TArray<FVector3f>(View);
 			Actor->LerpTime = Item.DeltaTime;
 		}
-		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid particles %s begin %d count %d num %d"),
-			*Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num());
+		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid %s begin %d count %d num %d frame %d"),
+		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num(), FrameId);
+	}
+
+	for (const auto& Actor : GranularFluidActors)
+	{
+		if (Actor->Count > 0 && Actor->Begin >= 0 && Actor->Begin + Actor->Count <= ParticlePosition.Num())
+		{
+			auto View = TArrayView<FVector3f>(ParticlePosition).Slice(Actor->Begin, Actor->Count);
+			Actor->ParticlePositions = TArray<FVector3f>(View);
+			Actor->LerpTime = Item.DeltaTime;
+		}
+		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid %s begin %d count %d num %d frame %d"),
+		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num(), FrameId);
 	}
 }

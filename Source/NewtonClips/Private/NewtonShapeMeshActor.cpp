@@ -27,7 +27,7 @@ void ANewtonShapeMeshActor::Tick(const float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (LerpTime > DeltaTime && LerpTime > 0)
+	if (LerpTime > 0)
 	{
 		const float Alpha = FMath::Clamp<float>(DeltaTime / LerpTime, 0.f, 1.f);
 		const auto Q = FQuat::Slerp(RootComponent->GetRelativeRotation().Quaternion(), TargetRotation, Alpha);

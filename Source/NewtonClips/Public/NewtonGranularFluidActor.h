@@ -4,10 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "DynamicMeshActor.h"
-#include "NewtonSoftMeshActor.generated.h"
+#include "NiagaraComponent.h"
+#include "NewtonGranularFluidActor.generated.h"
 
 USTRUCT(BlueprintType)
-struct FNewtonSoftMesh
+struct FNewtonGranularFluid
 {
 	GENERATED_BODY()
 
@@ -21,20 +22,17 @@ struct FNewtonSoftMesh
 	int32 Count = 0;
 
 	UPROPERTY()
-	FString Vertices;
-
-	UPROPERTY()
-	FString Indices;
+	FString Particles;
 };
 
 UCLASS()
-class NEWTONCLIPS_API ANewtonSoftMeshActor : public ADynamicMeshActor
+class NEWTONCLIPS_API ANewtonGranularFluidActor : public AActor
 {
 	GENERATED_BODY()
 
 public:
 	// Sets default values for this actor's properties
-	ANewtonSoftMeshActor();
+	ANewtonGranularFluidActor();
 
 	UPROPERTY(BlueprintReadWrite)
 	FString Name;
@@ -54,6 +52,9 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<UNiagaraComponent> NiagaraComponent;
 
 public:
 	// Called every frame

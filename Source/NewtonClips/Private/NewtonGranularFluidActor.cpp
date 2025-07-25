@@ -34,19 +34,19 @@ void ANewtonGranularFluidActor::Tick(const float DeltaTime)
 
 		TArray<FVector> Positions = UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayPosition(
 			NiagaraComponent, FName(TEXT("Positions")));
+		FBox Box;
 
-		const FVector Scale = NiagaraComponent->GetComponentScale();
 		for (int32 VecID = 0; VecID < Positions.Num(); ++VecID)
 		{
 			if (ParticlePositions.IsValidIndex(VecID))
 			{
-				const FVector L = (1 - Alpha) * Positions[VecID] + Alpha * FVector(ParticlePositions[VecID]) * Scale;
-				Positions[VecID] = L;
+				Box += Positions[VecID] = (1 - Alpha) * Positions[VecID] + Alpha * FVector(ParticlePositions[VecID]);
 			}
 		}
 
 		UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(
 			NiagaraComponent, FName(TEXT("Positions")), Positions);
+		NiagaraComponent->SetSystemFixedBounds(Box);
 
 		LerpTime = FMath::Max(LerpTime - DeltaTime, 0);
 	}

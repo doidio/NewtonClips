@@ -280,11 +280,11 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 
 		UNiagaraComponent* Nia = Cast<UNiagaraComponent>(Actor->GetRootComponent());
 		Nia->SetAsset(NSphere);
-		const FVector Scale = Nia->GetComponentScale();
 
 		FString File;
 		FString CacheDir = FPaths::Combine(Directory, TEXT(".cache"));
 		TArray<FVector> Particles;
+		FBox Box;
 
 		if (TArray<uint8> Bytes;
 			!Item.Particles.IsEmpty() &&
@@ -296,19 +296,20 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 			FMemory::Memcpy(Temp.GetData(), Bytes.GetData(), Bytes.Num());
 
 			Particles.SetNumUninitialized(Temp.Num());
-			ParallelFor(Temp.Num(), [&](const int32 VecID)
+			for (int32 VecID = 0; VecID < Temp.Num(); ++VecID)
 			{
 				if (Particles.IsValidIndex(VecID))
 				{
-					Particles[VecID] = FVector(Temp[VecID]) * Scale;
+					Box += Particles[VecID] = FVector(Temp[VecID]);
 				}
-			});
+			}
 		}
 		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid Particles cache: %s"), *Item.Particles);
 
 		UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(Nia, FName(TEXT("Positions")), Particles);
 		Nia->SetVariableInt(FName(TEXT("Count")), Particles.Num());
 		Nia->SetVariableMaterial(FName(TEXT("Mat")), UMaterialInstanceDynamic::Create(MOpaque, this));
+		Nia->SetSystemFixedBounds(Box);
 	}
 }
 

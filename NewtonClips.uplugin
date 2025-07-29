@@ -1,10 +1,10 @@
 {
 	"FileVersion": 3,
 	"Version": 1,
-	"VersionName": "1.0",
+	"VersionName": "0.1.2",
 	"FriendlyName": "NewtonClips",
 	"Description": "NewtonClips",
-	"Category": "Other",
+	"Category": "Physics",
 	"CreatedBy": "epw",
 	"CreatedByURL": "https://github.com/doidio/NewtonClips",
 	"DocsURL": "",

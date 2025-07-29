@@ -92,7 +92,7 @@ void ANewtonClipsDirectory::Tick(const float DeltaTime)
 		Model = NewtonModel;
 		Model.LastModified = TimeStamp;
 		DestroyModel();
-		SpawnModel(NewtonModel);
+		SpawnModel();
 		Frames.Empty();
 		FrameNum = Frames.Num();
 		FrameId = 0;
@@ -240,12 +240,20 @@ FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const TArray<FVector3f>& 
 	return Mesh;
 }
 
-void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
+void ANewtonClipsDirectory::SpawnModel()
 {
-	SetActorRelativeScale3D(FVector(NewtonModel.Scale * 100)); // m to cm
+	SetActorRelativeScale3D(FVector(Model.Scale * 100)); // m to cm
+	if (Model.UpAxis == 0)
+	{
+		SetActorRelativeRotation(FQuat::FindBetweenNormals({1, 0, 0}, {0, 0, 1}));
+	}
+	else if (Model.UpAxis == 1)
+	{
+		SetActorRelativeRotation(FQuat::FindBetweenNormals({0, 1, 0}, {0, 0, 1}));
+	}
 
 	// ReSharper disable once CppUseStructuredBinding
-	for (const auto& Item : NewtonModel.ShapeMesh)
+	for (const auto& Item : Model.ShapeMesh)
 	{
 		UE_LOG(LogNewtonClips, Log, TEXT("[ ShapeMesh: %s ]"), *Item.Name);
 
@@ -279,7 +287,7 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 	}
 
 	// ReSharper disable once CppUseStructuredBinding
-	for (const auto& Item : NewtonModel.SoftMesh)
+	for (const auto& Item : Model.SoftMesh)
 	{
 		UE_LOG(LogNewtonClips, Log, TEXT("[ SoftMesh: %s ]"), *Item.Name);
 
@@ -301,7 +309,7 @@ void ANewtonClipsDirectory::SpawnModel(const FNewtonModel& NewtonModel)
 	}
 
 	// ReSharper disable once CppUseStructuredBinding
-	for (const auto& Item : NewtonModel.GranularFluid)
+	for (const auto& Item : Model.GranularFluid)
 	{
 		UE_LOG(LogNewtonClips, Log, TEXT("[ GranularFluid: %s ]"), *Item.Name);
 

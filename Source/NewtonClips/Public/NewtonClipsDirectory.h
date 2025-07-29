@@ -21,6 +21,9 @@ struct FNewtonModel
 	float Scale = 1.0;
 
 	UPROPERTY()
+	int32 UpAxis = 2;
+
+	UPROPERTY()
 	TArray<FNewtonShapeMesh> ShapeMesh;
 
 	UPROPERTY()
@@ -76,7 +79,7 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	UPROPERTY()
 	TArray<FNewtonState> Frames;
 
-	void SpawnModel(const FNewtonModel& NewtonModel);
+	void SpawnModel();
 	void DestroyModel();
 
 	UPROPERTY()

@@ -47,82 +47,120 @@ void ANewtonClipsDirectory::Tick(const float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	FString Filename = FString::Printf(TEXT("%d.json"), Frames.Num());
-	if (const auto File = FPaths::Combine(Directory, TEXT("frames"), Filename);
-		FPaths::FileExists(File))
-	{
-		if (FString JsonString; FFileHelper::LoadFileToString(JsonString, *File))
-		{
-			const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonString);
+	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
-			if (TSharedPtr<FJsonObject> JsonObject; FJsonSerializer::Deserialize(Reader, JsonObject))
-			{
-				if (FNewtonState NewtonState; FJsonObjectConverter::JsonObjectToUStruct(
-					JsonObject.ToSharedRef(), FNewtonState::StaticStruct(), &NewtonState))
-				{
-					Frames.Add(NewtonState);
-					PopulateFrameLast();
-				}
-				else UE_LOG(LogNewtonClips, Error, TEXT("Failed to convert JSON file: %s"), *File);
-			}
-			else UE_LOG(LogNewtonClips, Error, TEXT("Failed to parse JSON file: %s"), *File);
+	// check new model
+	for (int _ = 0; _ < 1; ++_)
+	{
+		FString File = FPaths::Combine(Directory, TEXT("model.json"));
+		if (!FPaths::FileExists(File))
+		{
+			Model = FNewtonModel();
+			DestroyModel();
+			Frames.Empty();
+			FrameNum = Frames.Num();
+			FrameId = 0;
+			break;
 		}
-		else UE_LOG(LogNewtonClips, Error, TEXT("Failed to load JSON file: %s"), *File);
+
+		const FDateTime TimeStamp = PlatformFile.GetTimeStamp(*File);
+		if (TimeStamp <= Model.LastModified) break;
+
+		FString JsonString;
+		if (!FFileHelper::LoadFileToString(JsonString, *File))
+		{
+			UE_LOG(LogNewtonClips, Error, TEXT("Failed to load JSON file: %s"), *File);
+			break;
+		}
+
+		const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonString);
+		TSharedPtr<FJsonObject> JsonObject;
+		if (!FJsonSerializer::Deserialize(Reader, JsonObject))
+		{
+			UE_LOG(LogNewtonClips, Error, TEXT("Failed to parse JSON file: %s"), *File);
+			break;
+		}
+
+		FNewtonModel NewtonModel;
+		if (!FJsonObjectConverter::JsonObjectToUStruct(
+			JsonObject.ToSharedRef(), FNewtonModel::StaticStruct(), &NewtonModel))
+		{
+			UE_LOG(LogNewtonClips, Error, TEXT("Failed to convert JSON file: %s"), *File);
+			break;
+		}
+
+		Model = NewtonModel;
+		Model.LastModified = TimeStamp;
+		DestroyModel();
+		SpawnModel(NewtonModel);
+		Frames.Empty();
+		FrameNum = Frames.Num();
+		FrameId = 0;
 	}
+
+	// check the next frame
+	if (!Model.Sha1.IsEmpty())
+	{
+		for (int _ = 0; _ < 100; ++_)
+		{
+			FString Filename = FString::Printf(TEXT("%d.json"), Frames.Num());
+			FString File = FPaths::Combine(Directory, TEXT("frames"), Filename);
+			if (!FPaths::FileExists(File)) continue;
+
+			FString JsonString;
+			if (!FFileHelper::LoadFileToString(JsonString, *File))
+			{
+				UE_LOG(LogNewtonClips, Error, TEXT("Failed to load JSON file: %s"), *File);
+				break;
+			}
+
+			const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonString);
+			TSharedPtr<FJsonObject> JsonObject;
+			if (!FJsonSerializer::Deserialize(Reader, JsonObject))
+			{
+				UE_LOG(LogNewtonClips, Error, TEXT("Failed to parse JSON file: %s"), *File);
+				break;
+			}
+
+			FNewtonState NewtonState;
+			if (!FJsonObjectConverter::JsonObjectToUStruct(
+				JsonObject.ToSharedRef(), FNewtonState::StaticStruct(), &NewtonState))
+			{
+				UE_LOG(LogNewtonClips, Error, TEXT("Failed to convert JSON file: %s"), *File);
+				break;
+			}
+
+			Frames.Add(NewtonState);
+			FrameNum = Frames.Num();
+		}
+	}
+
+	if (AutoPlay) SetFrameNext();
+}
+
+// ReSharper disable once CppUE4BlueprintCallableFunctionMayBeConst
+void ANewtonClipsDirectory::SaveAsStatic()
+{
+	GConfig->SetString(ConfigSection, TEXT("Directory"), *Directory, GGameUserSettingsIni);
+	GConfig->Flush(false, GGameUserSettingsIni);
+}
+
+void ANewtonClipsDirectory::RestoreFromStatic()
+{
+	GConfig->GetString(ConfigSection, TEXT("Directory"), Directory, GGameUserSettingsIni);
 }
 
 // Called when the game starts or when spawned
 void ANewtonClipsDirectory::BeginPlay()
 {
 	Super::BeginPlay();
-
-	ModelFileTimeStamp = FDateTime::MinValue();
-
-	GetWorld()->GetTimerManager().SetTimer(
-		Timer, this, &ANewtonClipsDirectory::OnTimer, 1.f, true, 1.f);
 }
 
 void ANewtonClipsDirectory::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
 
-	GetWorld()->GetTimerManager().ClearTimer(Timer);
 	DestroyModel();
-}
-
-void ANewtonClipsDirectory::OnTimer()
-{
-	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-	FDateTime TimeStamp;
-
-	if (const auto File = FPaths::Combine(Directory, TEXT("model.json"));
-		(TimeStamp = PlatformFile.GetTimeStamp(*File)) > ModelFileTimeStamp)
-	{
-		ModelFileTimeStamp = TimeStamp;
-
-		if (FString JsonString; FFileHelper::LoadFileToString(JsonString, *File))
-		{
-			const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonString);
-
-			if (TSharedPtr<FJsonObject> JsonObject; FJsonSerializer::Deserialize(Reader, JsonObject))
-			{
-				if (FNewtonModel NewtonModel; FJsonObjectConverter::JsonObjectToUStruct(
-					JsonObject.ToSharedRef(), FNewtonModel::StaticStruct(), &NewtonModel))
-				{
-					if (Model.Sha1 != NewtonModel.Sha1)
-					{
-						Model = NewtonModel;
-						Frames.Empty();
-						DestroyModel();
-						SpawnModel(NewtonModel);
-					}
-				}
-				else UE_LOG(LogNewtonClips, Error, TEXT("Failed to convert JSON file: %s"), *File);
-			}
-			else UE_LOG(LogNewtonClips, Error, TEXT("Failed to parse JSON file: %s"), *File);
-		}
-		else UE_LOG(LogNewtonClips, Error, TEXT("Failed to load JSON file: %s"), *File);
-	}
 }
 
 FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const FString& Vertices, const FString& Indices) const
@@ -192,8 +230,9 @@ FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const TArray<FVector3f>& 
 	}
 
 	Mesh.EnableAttributes();
-	// DynamicMesh.EnableVertexUVs({}); TODO: ComputeUVs_PatchBuilder(DynamicMesh, nullptr);
 	Mesh.EnableVertexColors(DefaultVertexColor);
+
+	// DynamicMesh.EnableVertexUVs({}); TODO: ComputeUVs_PatchBuilder(DynamicMesh, nullptr);
 
 	UE::Geometry::FMeshNormals::QuickComputeVertexNormals(Mesh);
 	UE::Geometry::FMeshNormals::QuickRecomputeOverlayNormals(Mesh);
@@ -336,21 +375,29 @@ void ANewtonClipsDirectory::DestroyModel()
 	GranularFluidActors.Empty();
 }
 
-void ANewtonClipsDirectory::PopulateFrameLast()
+void ANewtonClipsDirectory::SetFrameNext()
 {
-	PopulateFrame(Frames.Num() - 1);
+	int32 Id = FrameId + 1;
+	if (AutoLoop && Frames.Num() > 0)
+	{
+		Id %= Frames.Num();
+	}
+	if (Frames.IsValidIndex(Id))
+	{
+		SetFrame(Id);
+	}
 }
 
-void ANewtonClipsDirectory::PopulateFrame(const int32 FrameId)
+void ANewtonClipsDirectory::SetFrame(const int32 InFrameId)
 {
-	if (!Frames.IsValidIndex(FrameId))
+	if (!Frames.IsValidIndex(InFrameId))
 	{
-		UE_LOG(LogNewtonClips, Error, TEXT("Invalid frame %d [0, %d)"), FrameId, Frames.Num());
+		UE_LOG(LogNewtonClips, Error, TEXT("Invalid frame %d [0, %d)"), InFrameId, Frames.Num());
 		return;
 	}
 
 	// ReSharper disable once CppUseStructuredBinding
-	const auto& Item = Frames[FrameId];
+	const auto& Item = Frames[InFrameId];
 
 	FString File;
 	FString CacheDir = FPaths::Combine(Directory, TEXT(".cache"));
@@ -408,7 +455,7 @@ void ANewtonClipsDirectory::PopulateFrame(const int32 FrameId)
 			Actor->LerpTime = Item.DeltaTime;
 		}
 		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid %s begin %d count %d num %d frame %d"),
-		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num(), FrameId);
+		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num(), InFrameId);
 	}
 
 	for (const auto& Actor : GranularFluidActors)
@@ -420,6 +467,8 @@ void ANewtonClipsDirectory::PopulateFrame(const int32 FrameId)
 			Actor->LerpTime = Item.DeltaTime;
 		}
 		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid %s begin %d count %d num %d frame %d"),
-		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num(), FrameId);
+		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num(), InFrameId);
 	}
+
+	FrameId = InFrameId;
 }

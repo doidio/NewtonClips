@@ -25,7 +25,7 @@ struct FNewtonGranularFluid
 	FString Particles;
 };
 
-UCLASS()
+UCLASS(Blueprintable)
 class NEWTONCLIPS_API ANewtonGranularFluidActor : public AActor
 {
 	GENERATED_BODY()

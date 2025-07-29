@@ -27,7 +27,7 @@ struct FNewtonSoftMesh
 	FString Indices;
 };
 
-UCLASS()
+UCLASS(Blueprintable)
 class NEWTONCLIPS_API ANewtonSoftMeshActor : public ADynamicMeshActor
 {
 	GENERATED_BODY()

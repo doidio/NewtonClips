@@ -18,7 +18,7 @@ struct FNewtonModel
 	FString Sha1;
 
 	UPROPERTY()
-	float Scale;
+	float Scale = 1.0;
 
 	UPROPERTY()
 	TArray<FNewtonShapeMesh> ShapeMesh;
@@ -28,6 +28,9 @@ struct FNewtonModel
 
 	UPROPERTY()
 	TArray<FNewtonGranularFluid> GranularFluid;
+
+	UPROPERTY()
+	FDateTime LastModified = FDateTime::MinValue();
 };
 
 USTRUCT(BlueprintType)
@@ -36,7 +39,7 @@ struct FNewtonState
 	GENERATED_BODY()
 
 	UPROPERTY()
-	float DeltaTime;
+	float DeltaTime = 0.0;
 
 	UPROPERTY()
 	FString BodyTransform;
@@ -45,15 +48,12 @@ struct FNewtonState
 	FString ParticlePosition;
 };
 
-UCLASS()
+UCLASS(Blueprintable)
 class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 {
 	GENERATED_BODY()
 
-	FTimerHandle Timer;
-	FDateTime ModelFileTimeStamp;
-
-	void OnTimer();
+	const TCHAR* ConfigSection = TEXT("/Script/NewtonClips.ANewtonClipsDirectory");
 
 	UPROPERTY()
 	TArray<ANewtonShapeMeshActor*> ShapeMeshActors;
@@ -69,18 +69,15 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 
 	FDynamicMesh3 CreateDynamicMesh(const FString& Vertices, const FString& Indices) const;
 	FDynamicMesh3 CreateDynamicMesh(const TArray<FVector3f>& Vertices, const TArray<FIntVector>& Triangles) const;
-
+	
 	UPROPERTY()
 	FNewtonModel Model;
-
-	void SpawnModel(const FNewtonModel& NewtonModel);
-	void DestroyModel();
 
 	UPROPERTY()
 	TArray<FNewtonState> Frames;
 
-	void PopulateFrameLast();
-	void PopulateFrame(int32 FrameId);
+	void SpawnModel(const FNewtonModel& NewtonModel);
+	void DestroyModel();
 
 	UPROPERTY()
 	UMaterial* MUnlit = nullptr;
@@ -100,9 +97,33 @@ public:
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Config")
+	
+	UPROPERTY(BlueprintReadWrite)
 	FString Directory;
+
+	UFUNCTION(BlueprintCallable)
+	void SaveAsStatic();
+
+	UFUNCTION(BlueprintCallable)
+	void RestoreFromStatic();
+
+	UPROPERTY(BlueprintReadWrite)
+	bool AutoPlay = false;
+
+	UPROPERTY(BlueprintReadWrite)
+	bool AutoLoop = false;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 FrameId = 0;
+
+	UPROPERTY(BlueprintReadOnly)
+	int32 FrameNum = 0;
+
+	UFUNCTION(BlueprintCallable)
+	void SetFrameNext();
+
+	UFUNCTION(BlueprintCallable)
+	void SetFrame(int32 InFrameId);
 
 protected:
 	// Called when the game starts or when spawned

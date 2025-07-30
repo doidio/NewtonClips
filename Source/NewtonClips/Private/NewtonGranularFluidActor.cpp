@@ -38,15 +38,28 @@ void ANewtonGranularFluidActor::Tick(const float DeltaTime)
 
 		for (int32 VecID = 0; VecID < Positions.Num(); ++VecID)
 		{
-			if (ParticlePositions.IsValidIndex(VecID))
+			if (LerpParticlePositions.IsValidIndex(VecID))
 			{
-				Box += Positions[VecID] = (1 - Alpha) * Positions[VecID] + Alpha * FVector(ParticlePositions[VecID]);
+				Box += Positions[VecID] = (1 - Alpha) * Positions[VecID] + Alpha * FVector(LerpParticlePositions[VecID]);
 			}
 		}
 
 		UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(
 			NiagaraComponent, FName(TEXT("Positions")), Positions);
 		NiagaraComponent->SetSystemFixedBounds(Box);
+		
+		TArray<FLinearColor> Colors;
+		Colors.SetNumUninitialized(LerpParticleColors.Num());
+		for (int32 VecID = 0; VecID < LerpParticleColors.Num(); ++VecID)
+		{
+			if (Colors.IsValidIndex(VecID))
+			{
+				Colors[VecID] = FLinearColor(LerpParticleColors[VecID]);
+			}
+		}
+		
+		UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayColor(
+			NiagaraComponent, FName(TEXT("Colors")), Colors);
 
 		LerpTime = FMath::Max(LerpTime - DeltaTime, 0);
 	}

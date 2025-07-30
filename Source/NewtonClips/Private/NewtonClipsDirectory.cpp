@@ -59,7 +59,7 @@ void ANewtonClipsDirectory::Tick(const float DeltaTime)
 			DestroyModel();
 			Frames.Empty();
 			FrameNum = Frames.Num();
-			FrameId = 0;
+			FrameId = -1;
 			break;
 		}
 
@@ -95,11 +95,11 @@ void ANewtonClipsDirectory::Tick(const float DeltaTime)
 		SpawnModel();
 		Frames.Empty();
 		FrameNum = Frames.Num();
-		FrameId = 0;
+		FrameId = -1;
 	}
 
 	// check the next frame
-	if (!Model.Sha1.IsEmpty())
+	if (!Model.Uuid.IsEmpty())
 	{
 		for (int _ = 0; _ < 100; ++_)
 		{
@@ -163,10 +163,12 @@ void ANewtonClipsDirectory::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	DestroyModel();
 }
 
-FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const FString& Vertices, const FString& Indices) const
+FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const FString& Vertices, const FString& Indices,
+                                                       const FString& VertexColors) const
 {
 	TArray<FVector3f> OutVertices;
 	TArray<FIntVector> OutTriangles;
+	TArray<FVector4f> OutVertexColors;
 
 	FString File;
 	FString CacheDir = FPaths::Combine(Directory, TEXT(".cache"));
@@ -191,20 +193,44 @@ FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const FString& Vertices, 
 	}
 	else UE_LOG(LogNewtonClips, Error, TEXT("Invalid Indices cache: %s"), *Indices);
 
-	return CreateDynamicMesh(OutVertices, OutTriangles);
+	if (!VertexColors.IsEmpty())
+	{
+		if (TArray<uint8> Bytes;
+			FPaths::FileExists(File = FPaths::Combine(CacheDir, VertexColors)) &&
+			FFileHelper::LoadFileToArray(Bytes, *File))
+		{
+			OutVertexColors.SetNumUninitialized(Bytes.Num() / sizeof(FVector4f));
+			FMemory::Memcpy(OutVertexColors.GetData(), Bytes.GetData(), Bytes.Num());
+		}
+		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid VertexColors cache: %s"), *VertexColors);
+	}
+
+	return CreateDynamicMesh(OutVertices, OutTriangles, OutVertexColors);
 }
 
+// ReSharper disable once CppMemberFunctionMayBeStatic
 FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const TArray<FVector3f>& Vertices,
-                                                       const TArray<FIntVector>& Triangles) const
+                                                       const TArray<FIntVector>& Triangles,
+                                                       const TArray<FVector4f>& VertexColors) const
 {
 	FDynamicMesh3 Mesh;
-
 	Mesh.EnableTriangleGroups();
+	Mesh.EnableAttributes();
+	Mesh.Attributes()->EnablePrimaryColors();
+	FDynamicMeshColorOverlay* ColorOverlay = Mesh.Attributes()->PrimaryColors();
 
 	const int N = Vertices.Num();
 	for (int i = 0; i < N; ++i)
 	{
 		Mesh.AppendVertex(FVector(Vertices[i]));
+		if (VertexColors.IsValidIndex(i))
+		{
+			ColorOverlay->AppendElement(VertexColors[i]);
+		}
+		else
+		{
+			ColorOverlay->AppendElement(FVector4f::One());
+		}
 	}
 
 	for (const auto& Triangle : Triangles)
@@ -215,22 +241,21 @@ FDynamicMesh3 ANewtonClipsDirectory::CreateDynamicMesh(const TArray<FVector3f>& 
 		if (Tid == FDynamicMesh3::InvalidID)
 		{
 			UE_LOG(LogNewtonClips, Error, TEXT("Invalid Triangle: %s (%d)"), *Triangle.ToString(), N);
-			return {};
+			continue;
 		}
 		if (Tid == FDynamicMesh3::NonManifoldID)
 		{
 			UE_LOG(LogNewtonClips, Error, TEXT("NonManifold Triangle: %s (%d)"), *Triangle.ToString(), N);
-			return {};
+			continue;
 		}
 		if (Tid == FDynamicMesh3::DuplicateTriangleID)
 		{
 			UE_LOG(LogNewtonClips, Error, TEXT("Duplicate Triangle: %s (%d)"), *Triangle.ToString(), N);
-			return {};
+			continue;
 		}
-	}
 
-	Mesh.EnableAttributes();
-	Mesh.EnableVertexColors(DefaultVertexColor);
+		ColorOverlay->SetTriangle(Tid, Tri);
+	}
 
 	// DynamicMesh.EnableVertexUVs({}); TODO: ComputeUVs_PatchBuilder(DynamicMesh, nullptr);
 
@@ -260,7 +285,7 @@ void ANewtonClipsDirectory::SpawnModel()
 		auto Actor = GetWorld()->SpawnActor<ANewtonShapeMeshActor>();
 		Actor->Name = Item.Name;
 		Actor->Body = Item.Body;
-		Actor->GetDynamicMeshComponent()->SetMesh(CreateDynamicMesh(Item.Vertices, Item.Indices));
+		Actor->GetDynamicMeshComponent()->SetMesh(CreateDynamicMesh(Item.Vertices, Item.Indices, Item.VertexColors));
 
 		Actor->GetDynamicMeshComponent()->GetDynamicMesh()->EditMesh([&](FDynamicMesh3& EditMesh)
 		{
@@ -295,7 +320,7 @@ void ANewtonClipsDirectory::SpawnModel()
 		Actor->Name = Item.Name;
 		Actor->Begin = Item.Begin;
 		Actor->Count = Item.Count;
-		Actor->GetDynamicMeshComponent()->SetMesh(CreateDynamicMesh(Item.Vertices, Item.Indices));
+		Actor->GetDynamicMeshComponent()->SetMesh(CreateDynamicMesh(Item.Vertices, Item.Indices, Item.VertexColors));
 
 #if WITH_EDITOR
 		Actor->SetActorLabel(Item.Name.IsEmpty() ? TEXT("NewtonSoftMesh") : Item.Name);
@@ -334,8 +359,8 @@ void ANewtonClipsDirectory::SpawnModel()
 		FBox Box;
 
 		if (TArray<uint8> Bytes;
-			!Item.Particles.IsEmpty() &&
-			FPaths::FileExists(File = FPaths::Combine(CacheDir, Item.Particles)) &&
+			!Item.ParticlePositions.IsEmpty() &&
+			FPaths::FileExists(File = FPaths::Combine(CacheDir, Item.ParticlePositions)) &&
 			FFileHelper::LoadFileToArray(Bytes, *File))
 		{
 			TArray<FVector3f> Temp;
@@ -351,12 +376,38 @@ void ANewtonClipsDirectory::SpawnModel()
 				}
 			}
 		}
-		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid Particles cache: %s"), *Item.Particles);
+		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid ParticlePositions cache: %s"), *Item.ParticlePositions);
 
 		UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(Nia, FName(TEXT("Positions")), Particles);
 		Nia->SetVariableInt(FName(TEXT("Count")), Particles.Num());
 		Nia->SetVariableMaterial(FName(TEXT("Mat")), UMaterialInstanceDynamic::Create(MOpaque, this));
 		Nia->SetSystemFixedBounds(Box);
+
+		if (!Item.ParticleColors.IsEmpty())
+		{
+			TArray<FLinearColor> Colors;
+
+			if (TArray<uint8> Bytes;
+				FPaths::FileExists(File = FPaths::Combine(CacheDir, Item.ParticleColors)) &&
+				FFileHelper::LoadFileToArray(Bytes, *File))
+			{
+				TArray<FVector4f> Temp;
+				Temp.SetNumUninitialized(Bytes.Num() / sizeof(FVector3f));
+				FMemory::Memcpy(Temp.GetData(), Bytes.GetData(), Bytes.Num());
+
+				Colors.SetNumUninitialized(Temp.Num());
+				for (int32 VecID = 0; VecID < Temp.Num(); ++VecID)
+				{
+					if (Colors.IsValidIndex(VecID))
+					{
+						Colors[VecID] = FLinearColor(Temp[VecID]);
+					}
+				}
+			}
+			else UE_LOG(LogNewtonClips, Error, TEXT("Invalid ParticleColors cache: %s"), *Item.ParticleColors);
+
+			UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayColor(Nia, FName(TEXT("Colors")), Colors);
+		}
 	}
 }
 
@@ -398,9 +449,17 @@ void ANewtonClipsDirectory::SetFrameNext()
 
 void ANewtonClipsDirectory::SetFrame(const int32 InFrameId)
 {
+	if (InFrameId < 0)
+	{
+		DestroyModel();
+		SpawnModel();
+		FrameId = -1;
+		return;
+	}
+
 	if (!Frames.IsValidIndex(InFrameId))
 	{
-		UE_LOG(LogNewtonClips, Error, TEXT("Invalid frame %d [0, %d)"), InFrameId, Frames.Num());
+		UE_LOG(LogNewtonClips, Error, TEXT("Invalid frame %d [1, %d]"), InFrameId, Frames.Num());
 		return;
 	}
 
@@ -410,12 +469,14 @@ void ANewtonClipsDirectory::SetFrame(const int32 InFrameId)
 	FString File;
 	FString CacheDir = FPaths::Combine(Directory, TEXT(".cache"));
 
-	TArray<TArray<float>> BodyTransform;
-	TArray<FVector3f> ParticlePosition;
+	TArray<TArray<float>> BodyTransforms;
+	TArray<FVector3f> ParticlePositions;
+	TMap<int32, TArray<FVector4f>> ShapeVertexColors;
+	TMap<int32, TArray<FVector4f>> ParticleColors;
 
 	if (TArray<uint8> Bytes;
-		!Item.BodyTransform.IsEmpty() &&
-		FPaths::FileExists(File = FPaths::Combine(CacheDir, Item.BodyTransform)) &&
+		!Item.BodyTransforms.IsEmpty() &&
+		FPaths::FileExists(File = FPaths::Combine(CacheDir, Item.BodyTransforms)) &&
 		FFileHelper::LoadFileToArray(Bytes, *File))
 	{
 		constexpr int32 Count = sizeof(float) * 7;
@@ -424,59 +485,112 @@ void ANewtonClipsDirectory::SetFrame(const int32 InFrameId)
 			TArray<float> Transform;
 			Transform.SetNumUninitialized(7);
 			FMemory::Memcpy(Transform.GetData(), Bytes.GetData() + i * Count, Count);
-			BodyTransform.Add(Transform);
+			BodyTransforms.Add(Transform);
 		}
 	}
-	else UE_LOG(LogNewtonClips, Error, TEXT("Invalid BodyTransform cache: %s"), *Item.BodyTransform);
+	else UE_LOG(LogNewtonClips, Error, TEXT("Invalid BodyTransforms cache: %s"), *Item.BodyTransforms);
 
 	if (TArray<uint8> Bytes;
-		!Item.ParticlePosition.IsEmpty() &&
-		FPaths::FileExists(File = FPaths::Combine(CacheDir, Item.ParticlePosition)) &&
+		!Item.ParticlePositions.IsEmpty() &&
+		FPaths::FileExists(File = FPaths::Combine(CacheDir, Item.ParticlePositions)) &&
 		FFileHelper::LoadFileToArray(Bytes, *File))
 	{
-		ParticlePosition.SetNumUninitialized(Bytes.Num() / sizeof(float) / 3);
-		FMemory::Memcpy(ParticlePosition.GetData(), Bytes.GetData(), Bytes.Num());
+		ParticlePositions.SetNumUninitialized(Bytes.Num() / sizeof(float) / 3);
+		FMemory::Memcpy(ParticlePositions.GetData(), Bytes.GetData(), Bytes.Num());
 	}
-	else UE_LOG(LogNewtonClips, Error, TEXT("Invalid ParticlePosition cache: %s"), *Item.ParticlePosition);
+	else UE_LOG(LogNewtonClips, Error, TEXT("Invalid ParticlePositions cache: %s"), *Item.ParticlePositions);
 
-	for (const auto& Actor : ShapeMeshActors)
+	for (const auto& Pair : Item.ShapeVertexColors)
 	{
-		if (BodyTransform.IsValidIndex(Actor->Body))
+		if (TArray<uint8> Bytes;
+			!Pair.Value.IsEmpty() &&
+			FPaths::FileExists(File = FPaths::Combine(CacheDir, Pair.Value)) &&
+			FFileHelper::LoadFileToArray(Bytes, *File))
 		{
-			const auto& Transform = BodyTransform[Actor->Body];
+			ShapeVertexColors.Add(Pair.Key, {});
+			ShapeVertexColors[Pair.Key].SetNumUninitialized(Bytes.Num() / sizeof(float) / 4);
+			FMemory::Memcpy(ShapeVertexColors[Pair.Key].GetData(), Bytes.GetData(), Bytes.Num());
+		}
+		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid ShapeVertexColors cache: %d %s"), Pair.Key, *Pair.Value);
+	}
+
+	for (const auto& Pair : Item.ParticleColors)
+	{
+		if (TArray<uint8> Bytes;
+			!Pair.Value.IsEmpty() &&
+			FPaths::FileExists(File = FPaths::Combine(CacheDir, Pair.Value)) &&
+			FFileHelper::LoadFileToArray(Bytes, *File))
+		{
+			ParticleColors.Add(Pair.Key, {});
+			ParticleColors[Pair.Key].SetNumUninitialized(Bytes.Num() / sizeof(float) / 4);
+			FMemory::Memcpy(ParticleColors[Pair.Key].GetData(), Bytes.GetData(), Bytes.Num());
+		}
+		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid ParticleColors cache: %d %s"), Pair.Key, *Pair.Value);
+	}
+
+	FrameId = InFrameId;
+	SetFrame(Item.DeltaTime, BodyTransforms, ParticlePositions, ShapeVertexColors, ParticleColors);
+}
+
+void ANewtonClipsDirectory::SetFrame(const float DeltaTime, const TArray<TArray<float>>& BodyTransforms,
+                                     const TArray<FVector3f>& ParticlePositions,
+                                     const TMap<int32, TArray<FVector4f>>& ShapeVertexColors,
+                                     const TMap<int32, TArray<FVector4f>>& ParticleColors)
+{
+	for (int i = 0; i < ShapeMeshActors.Num(); ++i)
+	{
+		ANewtonShapeMeshActor* Actor = ShapeMeshActors[i];
+		if (BodyTransforms.IsValidIndex(Actor->Body))
+		{
+			const auto& Transform = BodyTransforms[Actor->Body];
 
 			// convert from right-hand-system
 			const FVector L(Transform[0], Transform[1], Transform[2]);
 			const FQuat Q(Transform[3], Transform[4], Transform[5], Transform[6]);
-			Actor->TargetLocation = L;
-			Actor->TargetRotation = Q;
-			Actor->LerpTime = Item.DeltaTime;
+			Actor->LerpLocation = L;
+			Actor->LerpRotation = Q;
+			Actor->LerpTime = DeltaTime;
+		}
+
+		if (ShapeVertexColors.Contains(i))
+		{
+			Actor->LerpVertexColors = ShapeVertexColors[i];
 		}
 	}
 
-	for (const auto& Actor : SoftMeshActors)
+	for (int i = 0; i < SoftMeshActors.Num(); ++i)
 	{
-		if (Actor->Count > 0 && Actor->Begin >= 0 && Actor->Begin + Actor->Count <= ParticlePosition.Num())
+		ANewtonSoftMeshActor* Actor = SoftMeshActors[i];
+		if (Actor->Begin >= 0 && Actor->Count > 0 && Actor->Begin + Actor->Count <= ParticlePositions.Num())
 		{
-			auto View = TArrayView<FVector3f>(ParticlePosition).Slice(Actor->Begin, Actor->Count);
-			Actor->ParticlePositions = TArray<FVector3f>(View);
-			Actor->LerpTime = Item.DeltaTime;
+			auto View = TArrayView<const FVector3f>(ParticlePositions).Slice(Actor->Begin, Actor->Count);
+			Actor->LerpParticlePositions = TArray<FVector3f>(View);
+			Actor->LerpTime = DeltaTime;
 		}
 		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid %s begin %d count %d num %d frame %d"),
-		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num(), InFrameId);
+		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePositions.Num(), FrameId);
+
+		if (ParticleColors.Contains(Actor->Begin))
+		{
+			Actor->LerpVertexColors = ParticleColors[Actor->Begin];
+		}
 	}
 
-	for (const auto& Actor : GranularFluidActors)
+	for (int i = 0; i < GranularFluidActors.Num(); ++i)
 	{
-		if (Actor->Count > 0 && Actor->Begin >= 0 && Actor->Begin + Actor->Count <= ParticlePosition.Num())
+		ANewtonGranularFluidActor* Actor = GranularFluidActors[i];
+		if (Actor->Begin >= 0 && Actor->Count > 0 && Actor->Begin + Actor->Count <= ParticlePositions.Num())
 		{
-			auto View = TArrayView<FVector3f>(ParticlePosition).Slice(Actor->Begin, Actor->Count);
-			Actor->ParticlePositions = TArray<FVector3f>(View);
-			Actor->LerpTime = Item.DeltaTime;
+			auto View = TArrayView<const FVector3f>(ParticlePositions).Slice(Actor->Begin, Actor->Count);
+			Actor->LerpParticlePositions = TArray<FVector3f>(View);
+			Actor->LerpTime = DeltaTime;
 		}
 		else UE_LOG(LogNewtonClips, Error, TEXT("Invalid %s begin %d count %d num %d frame %d"),
-		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePosition.Num(), InFrameId);
-	}
+		            *Actor->Name, Actor->Begin, Actor->Count, ParticlePositions.Num(), FrameId);
 
-	FrameId = InFrameId;
+		if (ParticleColors.Contains(Actor->Begin))
+		{
+			Actor->LerpParticleColors = ParticleColors[Actor->Begin];
+		}
+	}
 }

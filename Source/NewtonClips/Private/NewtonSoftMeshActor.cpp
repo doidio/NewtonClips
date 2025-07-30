@@ -3,6 +3,7 @@
 
 #include "NewtonSoftMeshActor.h"
 
+#include "Components/BaseDynamicMeshSceneProxy.h"
 #include "DynamicMesh/MeshNormals.h"
 #include "Selection/MeshTopologySelectionMechanic.h"
 
@@ -33,18 +34,30 @@ void ANewtonSoftMeshActor::Tick(const float DeltaTime)
 
 		ParallelFor(Mesh.VertexCount(), [&](const int32 VertexID)
 		{
-			if (ParticlePositions.IsValidIndex(VertexID))
+			if (LerpParticlePositions.IsValidIndex(VertexID))
 			{
-				const FVector L = (1 - Alpha) * Mesh.GetVertex(VertexID) + Alpha * FVector(ParticlePositions[VertexID]);
+				const auto L = (1 - Alpha) * Mesh.GetVertex(VertexID) + Alpha *
+					FVector(LerpParticlePositions[VertexID]);
 				Mesh.SetVertex(VertexID, L);
 			}
 		});
 
+		if (!LerpVertexColors.IsEmpty())
+		{
+			FDynamicMeshColorOverlay* ColorOverlay = Mesh.Attributes()->PrimaryColors();
+			for (int i = 0; i < ColorOverlay->ElementCount(); ++i)
+			{
+				auto Old = ColorOverlay->GetElement(i);
+				auto New = LerpVertexColors.IsValidIndex(i) ? LerpVertexColors[i] : LerpVertexColors[0];
+				New = (1 - Alpha) * Old + Alpha * New;
+				ColorOverlay->SetElement(i, New);
+			}
+		}
+
+		GetDynamicMeshComponent()->SetMesh(MoveTemp(Mesh));
 		UE::Geometry::FMeshNormals::QuickComputeVertexNormals(Mesh);
 		UE::Geometry::FMeshNormals::QuickRecomputeOverlayNormals(Mesh);
 
-		GetDynamicMeshComponent()->NotifyMeshModified();
-		GetDynamicMeshComponent()->NotifyMeshVertexAttributesModified();
 		LerpTime = FMath::Max(LerpTime - DeltaTime, 0);
 	}
 }

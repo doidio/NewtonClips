@@ -15,7 +15,7 @@ struct FNewtonModel
 	GENERATED_BODY()
 
 	UPROPERTY()
-	FString Sha1;
+	FString Uuid;
 
 	UPROPERTY()
 	float Scale = 1.0;
@@ -45,10 +45,16 @@ struct FNewtonState
 	float DeltaTime = 0.0;
 
 	UPROPERTY()
-	FString BodyTransform;
+	FString BodyTransforms;
 
 	UPROPERTY()
-	FString ParticlePosition;
+	FString ParticlePositions;
+
+	UPROPERTY()
+	TMap<int32, FString> ShapeVertexColors;
+
+	UPROPERTY()
+	TMap<int32, FString> ParticleColors;
 };
 
 UCLASS(Blueprintable)
@@ -67,12 +73,10 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	UPROPERTY()
 	TArray<ANewtonGranularFluidActor*> GranularFluidActors;
 
-	UPROPERTY()
-	FVector3f DefaultVertexColor = {1, 0, 0};
+	FDynamicMesh3 CreateDynamicMesh(const FString& Vertices, const FString& Indices, const FString& VertexColors) const;
+	FDynamicMesh3 CreateDynamicMesh(const TArray<FVector3f>& Vertices, const TArray<FIntVector>& Triangles,
+	                                const TArray<FVector4f>& VertexColors) const;
 
-	FDynamicMesh3 CreateDynamicMesh(const FString& Vertices, const FString& Indices) const;
-	FDynamicMesh3 CreateDynamicMesh(const TArray<FVector3f>& Vertices, const TArray<FIntVector>& Triangles) const;
-	
 	UPROPERTY()
 	FNewtonModel Model;
 
@@ -100,7 +104,7 @@ public:
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-	
+
 	UPROPERTY(BlueprintReadWrite)
 	FString Directory;
 
@@ -117,7 +121,7 @@ public:
 	bool AutoLoop = false;
 
 	UPROPERTY(BlueprintReadOnly)
-	int32 FrameId = 0;
+	int32 FrameId = -1;
 
 	UPROPERTY(BlueprintReadOnly)
 	int32 FrameNum = 0;
@@ -127,6 +131,10 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetFrame(int32 InFrameId);
+	void SetFrame(const float DeltaTime, const TArray<TArray<float>>& BodyTransforms,
+	              const TArray<FVector3f>& ParticlePositions,
+	              const TMap<int32, TArray<FVector4f>>& ShapeVertexColors,
+	              const TMap<int32, TArray<FVector4f>>& ParticleColors);
 
 protected:
 	// Called when the game starts or when spawned

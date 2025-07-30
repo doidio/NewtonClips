@@ -25,6 +25,9 @@ struct FNewtonSoftMesh
 
 	UPROPERTY()
 	FString Indices;
+
+	UPROPERTY()
+	FString VertexColors;
 };
 
 UCLASS(Blueprintable)
@@ -46,7 +49,10 @@ public:
 	int32 Count = 0;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<FVector3f> ParticlePositions;
+	TArray<FVector3f> LerpParticlePositions;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FVector4f> LerpVertexColors;
 
 	UPROPERTY(BlueprintReadWrite)
 	float LerpTime;

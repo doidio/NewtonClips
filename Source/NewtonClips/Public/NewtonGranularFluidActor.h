@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DynamicMeshActor.h"
 #include "NiagaraComponent.h"
 #include "NewtonGranularFluidActor.generated.h"
 
@@ -22,7 +21,10 @@ struct FNewtonGranularFluid
 	int32 Count = 0;
 
 	UPROPERTY()
-	FString Particles;
+	FString ParticlePositions;
+
+	UPROPERTY()
+	FString ParticleColors;
 };
 
 UCLASS(Blueprintable)
@@ -44,7 +46,10 @@ public:
 	int32 Count = 0;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<FVector3f> ParticlePositions;
+	TArray<FVector3f> LerpParticlePositions;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FVector4f> LerpParticleColors;
 
 	UPROPERTY(BlueprintReadWrite)
 	float LerpTime;

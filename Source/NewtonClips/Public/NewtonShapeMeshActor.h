@@ -27,10 +27,7 @@ struct FNewtonShapeMesh
 	FString Indices;
 
 	UPROPERTY()
-	FString VertexNormals;
-
-	UPROPERTY()
-	FString VertexUVs;
+	FString VertexColors;
 };
 
 /**
@@ -52,10 +49,13 @@ public:
 	int32 Body = -1;
 
 	UPROPERTY(BlueprintReadWrite)
-	FVector TargetLocation;
+	FVector LerpLocation;
 
 	UPROPERTY(BlueprintReadWrite)
-	FQuat TargetRotation;
+	FQuat LerpRotation;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<FVector4f> LerpVertexColors;
 
 	UPROPERTY(BlueprintReadWrite)
 	float LerpTime;

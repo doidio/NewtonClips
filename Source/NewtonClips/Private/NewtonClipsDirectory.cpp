@@ -95,6 +95,12 @@ void ANewtonClipsDirectory::Tick(const float DeltaTime)
 		Frames.Empty();
 		FrameNum = Frames.Num();
 		FrameId = -1;
+
+		if (FString RecordDir = FPaths::Combine(Directory, TEXT("record"));
+			FPaths::DirectoryExists(RecordDir))
+		{
+			PlatformFile.DeleteDirectoryRecursively(*RecordDir);
+		}
 	}
 
 	// check the next frame
@@ -103,7 +109,7 @@ void ANewtonClipsDirectory::Tick(const float DeltaTime)
 		for (int _ = 0; _ < 100; ++_)
 		{
 			FString Filename = FString::Printf(TEXT("%d.json"), Frames.Num());
-			FString File = FPaths::Combine(Directory, TEXT("frames"), Filename);
+			FString File = FPaths::Combine(Directory, TEXT("frame"), Filename);
 			if (!FPaths::FileExists(File)) continue;
 
 			FString JsonString;
@@ -495,6 +501,9 @@ void ANewtonClipsDirectory::SetFrame(const int32 InFrameId)
 
 	LerpTime = State.DeltaTime;
 
-	// FString Path = FPaths::Combine(Directory, TEXT("screenshots"), FString::Printf(TEXT("FrameId_%d"), FrameId));
-	// FScreenshotRequest::RequestScreenshot(Path, false, false, false);
+	if (AutoScreenshot)
+	{
+		const FString Path = FPaths::Combine(Directory, TEXT("record"), FString::Printf(TEXT("%d"), FrameId + 1));
+		FScreenshotRequest::RequestScreenshot(Path, false, false, false);
+	}
 }

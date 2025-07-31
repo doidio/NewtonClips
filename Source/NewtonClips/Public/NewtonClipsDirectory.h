@@ -124,6 +124,9 @@ public:
 	UPROPERTY(BlueprintReadWrite)
 	bool AutoLoop = false;
 
+	UPROPERTY(BlueprintReadWrite)
+	bool AutoScreenshot = false;
+
 	UPROPERTY(BlueprintReadOnly)
 	int32 FrameId = -1;
 

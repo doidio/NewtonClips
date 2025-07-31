@@ -2,9 +2,9 @@
 
 
 #include "NewtonGranularFluidActor.h"
-
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
 
+using UNiaLib = UNiagaraDataInterfaceArrayFunctionLibrary;
 
 // Sets default values
 ANewtonGranularFluidActor::ANewtonGranularFluidActor()
@@ -30,37 +30,48 @@ void ANewtonGranularFluidActor::Tick(const float DeltaTime)
 
 	if (LerpTime > 0)
 	{
-		const float Alpha = FMath::Clamp<float>(DeltaTime / LerpTime, 0.f, 1.f);
-
-		TArray<FVector> Positions = UNiagaraDataInterfaceArrayFunctionLibrary::GetNiagaraArrayPosition(
-			NiagaraComponent, FName(TEXT("Positions")));
-		FBox Box;
-
-		for (int32 VecID = 0; VecID < Positions.Num(); ++VecID)
-		{
-			if (LerpParticlePositions.IsValidIndex(VecID))
-			{
-				Box += Positions[VecID] = (1 - Alpha) * Positions[VecID] + Alpha * FVector(LerpParticlePositions[VecID]);
-			}
-		}
-
-		UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(
-			NiagaraComponent, FName(TEXT("Positions")), Positions);
-		NiagaraComponent->SetSystemFixedBounds(Box);
-		
-		TArray<FLinearColor> Colors;
-		Colors.SetNumUninitialized(LerpParticleColors.Num());
-		for (int32 VecID = 0; VecID < LerpParticleColors.Num(); ++VecID)
-		{
-			if (Colors.IsValidIndex(VecID))
-			{
-				Colors[VecID] = FLinearColor(LerpParticleColors[VecID]);
-			}
-		}
-		
-		UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayColor(
-			NiagaraComponent, FName(TEXT("Colors")), Colors);
-
+		Lerp(DeltaTime / LerpTime);
 		LerpTime = FMath::Max(LerpTime - DeltaTime, 0);
 	}
+}
+
+void ANewtonGranularFluidActor::Lerp(float Alpha)
+{
+	Alpha = FMath::Clamp<float>(Alpha, 0.f, 1.f);
+
+	TArray<FVector> Positions = UNiaLib::GetNiagaraArrayPosition(NiagaraComponent, FName(TEXT("Positions")));
+	FBox Box;
+
+	for (int32 VecID = 0; VecID < Count; ++VecID)
+	{
+		if (!LerpParticlePositions.IsValidIndex(VecID)) continue;
+
+		if (!Positions.IsValidIndex(VecID))
+		{
+			Positions.AddZeroed();
+		}
+		Box += Positions[VecID] = (1 - Alpha) * Positions[VecID] + Alpha * FVector(LerpParticlePositions[VecID]);
+	}
+
+	UNiaLib::SetNiagaraArrayPosition(NiagaraComponent, FName(TEXT("Positions")), Positions);
+	NiagaraComponent->SetVariableInt(FName(TEXT("Count")), Count);
+	NiagaraComponent->SetSystemFixedBounds(Box);
+
+	TArray<FLinearColor> Colors = UNiaLib::GetNiagaraArrayColor(NiagaraComponent, FName(TEXT("Colors")));
+
+	for (int32 VecID = 0; VecID < Count; ++VecID)
+	{
+		if (!LerpParticleHues.IsValidIndex(VecID)) continue;
+
+		const auto Hue = LerpParticleHues[VecID];
+		auto To = FLinearColor(Hue, 1, 1, 1).HSVToLinearRGB();
+
+		if (!Colors.IsValidIndex(VecID))
+		{
+			Colors.Add(FLinearColor::White);
+		}
+		Colors[VecID] = FLinearColor::LerpUsingHSV(Colors[VecID], To, Alpha);
+	}
+
+	UNiaLib::SetNiagaraArrayColor(NiagaraComponent, FName(TEXT("Colors")), Colors);
 }

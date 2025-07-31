@@ -24,7 +24,7 @@ struct FNewtonGranularFluid
 	FString ParticlePositions;
 
 	UPROPERTY()
-	FString ParticleColors;
+	FString ParticleHues;
 };
 
 UCLASS(Blueprintable)
@@ -49,7 +49,7 @@ public:
 	TArray<FVector3f> LerpParticlePositions;
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<FVector4f> LerpParticleColors;
+	TArray<float> LerpParticleHues;
 
 	UPROPERTY(BlueprintReadWrite)
 	float LerpTime;
@@ -64,4 +64,7 @@ protected:
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION(BlueprintCallable)
+	void Lerp(float Alpha = 1.0);
 };

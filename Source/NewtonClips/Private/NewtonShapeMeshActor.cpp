@@ -32,30 +32,38 @@ void ANewtonShapeMeshActor::Tick(const float DeltaTime)
 
 	if (LerpTime > 0)
 	{
-		const float Alpha = FMath::Clamp<float>(DeltaTime / LerpTime, 0.f, 1.f);
-		const auto Q = FQuat::Slerp(RootComponent->GetRelativeRotation().Quaternion(), LerpRotation, Alpha);
-		const auto L = (1 - Alpha) * RootComponent->GetRelativeLocation() + Alpha * LerpLocation;
+		Lerp(DeltaTime / LerpTime);
+		LerpTime = FMath::Max(LerpTime - DeltaTime, 0);
+	}
+}
 
-		RootComponent->SetRelativeTransform(FTransform(Q, L, RootComponent->GetRelativeScale3D()));
+void ANewtonShapeMeshActor::Lerp(float Alpha)
+{
+	Alpha = FMath::Clamp<float>(Alpha, 0.f, 1.f);
+	
+	FVector P(LerpTransform[0], LerpTransform[1], LerpTransform[2]);
+	FQuat Q(LerpTransform[3], LerpTransform[4], LerpTransform[5], LerpTransform[6]);
+		
+	Q = FQuat::Slerp(RootComponent->GetRelativeRotation().Quaternion(), Q, Alpha);
+	P = (1 - Alpha) * RootComponent->GetRelativeLocation() + Alpha * P;
 
-		auto Mesh = GetDynamicMeshComponent()->GetDynamicMesh()->GetMeshRef();
+	RootComponent->SetRelativeTransform(FTransform(Q, P, RootComponent->GetRelativeScale3D()));
 
-		if (!LerpVertexColors.IsEmpty())
+	auto Mesh = GetDynamicMeshComponent()->GetDynamicMesh()->GetMeshRef();
+
+	if (!LerpVertexHues.IsEmpty())
+	{
+		FDynamicMeshColorOverlay* ColorOverlay = Mesh.Attributes()->PrimaryColors();
+		for (int i = 0; i < ColorOverlay->ElementCount(); ++i)
 		{
-			FDynamicMeshColorOverlay* ColorOverlay = Mesh.Attributes()->PrimaryColors();
-			for (int i = 0; i < ColorOverlay->ElementCount(); ++i)
-			{
-				auto Old = ColorOverlay->GetElement(i);
-				auto New = LerpVertexColors.IsValidIndex(i) ? LerpVertexColors[i] : LerpVertexColors[0];
-				New = (1 - Alpha) * Old + Alpha * New;
-				ColorOverlay->SetElement(i, New);
-			}
-
-			GetDynamicMeshComponent()->SetMesh(MoveTemp(Mesh));
-			UE::Geometry::FMeshNormals::QuickComputeVertexNormals(Mesh);
-			UE::Geometry::FMeshNormals::QuickRecomputeOverlayNormals(Mesh);
+			const auto Hue = LerpVertexHues.IsValidIndex(i) ? LerpVertexHues[i] : LerpVertexHues[0];
+			auto To = FLinearColor(Hue, 1, 1, 1).HSVToLinearRGB();
+			auto From = ColorOverlay->GetElement(i);
+			ColorOverlay->SetElement(i, FLinearColor::LerpUsingHSV(From, To, Alpha));
 		}
 
-		LerpTime = FMath::Max(LerpTime - DeltaTime, 0);
+		GetDynamicMeshComponent()->SetMesh(MoveTemp(Mesh));
+		UE::Geometry::FMeshNormals::QuickComputeVertexNormals(Mesh);
+		UE::Geometry::FMeshNormals::QuickRecomputeOverlayNormals(Mesh);
 	}
 }

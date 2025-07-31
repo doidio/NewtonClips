@@ -51,10 +51,10 @@ struct FNewtonState
 	FString ParticlePositions;
 
 	UPROPERTY()
-	TMap<int32, FString> ShapeVertexColors;
+	TMap<int32, FString> ShapeVertexHues;
 
 	UPROPERTY()
-	TMap<int32, FString> ParticleColors;
+	TMap<int32, FString> ParticleHues;
 };
 
 UCLASS(Blueprintable)
@@ -73,12 +73,16 @@ class NEWTONCLIPS_API ANewtonClipsDirectory : public AActor
 	UPROPERTY()
 	TArray<ANewtonGranularFluidActor*> GranularFluidActors;
 
-	FDynamicMesh3 CreateDynamicMesh(const FString& Vertices, const FString& Indices, const FString& VertexColors) const;
-	FDynamicMesh3 CreateDynamicMesh(const TArray<FVector3f>& Vertices, const TArray<FIntVector>& Triangles,
-	                                const TArray<FVector4f>& VertexColors) const;
+	template <typename T>
+	TArray<T> Cache(FString Sha1);
+
+	FDynamicMesh3 CreateDynamicMesh(const TArray<FVector3f>& Vertices, const TArray<FIntVector>& Triangles) const;
 
 	UPROPERTY()
 	FNewtonModel Model;
+
+	UPROPERTY()
+	float LerpTime = 0.0;
 
 	UPROPERTY()
 	TArray<FNewtonState> Frames;
@@ -131,10 +135,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetFrame(int32 InFrameId);
-	void SetFrame(const float DeltaTime, const TArray<TArray<float>>& BodyTransforms,
-	              const TArray<FVector3f>& ParticlePositions,
-	              const TMap<int32, TArray<FVector4f>>& ShapeVertexColors,
-	              const TMap<int32, TArray<FVector4f>>& ParticleColors);
 
 protected:
 	// Called when the game starts or when spawned

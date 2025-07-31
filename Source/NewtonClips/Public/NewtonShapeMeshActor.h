@@ -18,7 +18,7 @@ struct FNewtonShapeMesh
 	int32 Body = -1;
 
 	UPROPERTY()
-	TArray<float> Transform;
+	TArray<float> Transform = {0, 0, 0, 0, 0, 0, 1};
 
 	UPROPERTY()
 	FString Vertices;
@@ -27,7 +27,7 @@ struct FNewtonShapeMesh
 	FString Indices;
 
 	UPROPERTY()
-	FString VertexColors;
+	FString VertexHues;
 };
 
 /**
@@ -49,13 +49,10 @@ public:
 	int32 Body = -1;
 
 	UPROPERTY(BlueprintReadWrite)
-	FVector LerpLocation;
+	TArray<float> LerpTransform = {0, 0, 0, 0, 0, 0, 1};
 
 	UPROPERTY(BlueprintReadWrite)
-	FQuat LerpRotation;
-
-	UPROPERTY(BlueprintReadWrite)
-	TArray<FVector4f> LerpVertexColors;
+	TArray<float> LerpVertexHues;
 
 	UPROPERTY(BlueprintReadWrite)
 	float LerpTime;
@@ -70,4 +67,7 @@ protected:
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	UFUNCTION(BlueprintCallable)
+	void Lerp(float Alpha = 1.0);
 };
